@@ -1,5 +1,6 @@
 (ns ocr.core
- (:require [clojure.java.io :refer [resource file writer]])
+ (:require [clojure.java.io :refer [resource file writer]]
+           [clojure.set :refer [intersection difference]])
  (:import [java.io File
                    IOException]
           [java.awt.image BufferedImage]
@@ -126,7 +127,7 @@
  ""
  [vektor-tacaka]
  (let [[x-min y-min] (find-mins vektor-tacaka)
-       novi-vektor-tacaka (atom [])]
+       novi-vektor-tacaka (atom #{})]
   (doseq [[x y] vektor-tacaka]
    (swap! novi-vektor-tacaka conj [(- x x-min) (- y y-min)]))
   @novi-vektor-tacaka))
@@ -136,7 +137,7 @@
  [image
   [start end]
   height]
- (let [black-pixels (atom [])]
+ (let [black-pixels (atom #{})]
   (doseq [y (range height)]
    (doseq [x (range start end)]
     (let [p (.getRGB image x y)
@@ -212,7 +213,7 @@
                   broj-poklopljenih-tacaka)
                (< razlika
                   (:razlika acc))))
-   {:slovo (char slovo)
+   {:slovo slovo
     :broj-poklopljenih-tacaka broj-poklopljenih-tacaka
     :razlika razlika}
    acc))
@@ -227,34 +228,27 @@
  ""
  [image
   height
-  ob-slova]
+  ob-slova
+  thread-number]
  (let [tekst (atom "")
        prethodni-end (atom 0)]
   (doseq [[start end] ob-slova]
    (let [vektor-nepoznatog-slova (procitaj-nepoznato-slovo image [start end] height)
 ;         test-a (println vektor-nepoznatog-slova)
-         poklapanja-slova (atom [])
-         trenutno-slovo (atom {})]
+         poklapanja-slova (atom [])]
     (doseq [[tacke slovo sirina visina] @slova]
-     (swap! trenutno-slovo assoc :slovo slovo :broj-poklopljenih-tacaka 0)
-     (let [poklopljene-tacke (atom 0)]
-      (doseq [par-s tacke]
-       (doseq [par-n vektor-nepoznatog-slova]
-        (when (= par-s
-                 par-n)
-         (swap! poklopljene-tacke inc))
-        )
-       )
-      (swap! trenutno-slovo assoc
-       :broj-poklopljenih-tacaka @poklopljene-tacke
-       :razlika (Math/abs (- (count tacke)
-                             (count vektor-nepoznatog-slova))
-                 ))
-      (swap! poklapanja-slova conj @trenutno-slovo))
+     (let [poklopljene-tacke (count (intersection tacke
+                                                  vektor-nepoznatog-slova))
+           ne-poklopljene-tacke (count (difference tacke
+                                                   vektor-nepoznatog-slova))]
+      (swap! poklapanja-slova conj
+       {:slovo (char slovo)
+        :broj-poklopljenih-tacaka poklopljene-tacke
+        :razlika ne-poklopljene-tacke}))
      )
-;           (println @poklapanja-slova)
+           ;(println @poklapanja-slova)
 ;           (println (most-probable-vektor @poklapanja-slova))
-    (when (< 10
+    (when (< 16
              (- start
                 @prethodni-end))
      (swap! tekst str " "))
@@ -265,7 +259,7 @@
 ;      )
     )
    )
-  (println @tekst))
+  [thread-number @tekst])
  )
 
 (defn procitaj-slovo
@@ -274,7 +268,7 @@
   width
   height
   slovo]
- (let [black-pixels (atom [])]
+ (let [black-pixels (atom #{})]
   (doseq [y (range height)]
    (doseq [x (range width)]
     (let [p (.getRGB image x y)
@@ -357,7 +351,7 @@
    width
    height
    izvrsi-fn
-   & [slovo]]
+   & [opciono]]
   (try
    (let [fin (resource url)
          ;fout (file "resources/out1.jpg")
@@ -371,13 +365,13 @@
            width (.getWidth image)
            height (.getHeight image)]
       (when (= "procitaj-slovo"
-             izvrsi-fn)
-       (procitaj-slovo image width height slovo))
+               izvrsi-fn)
+       (procitaj-slovo image width height opciono))
       (when (= "procitaj-tekst"
                izvrsi-fn)
        (grayscale-contrast image width height)
        (let [ob-slova (odredi-oblast-slova image width height)]
-        (citaj image height ob-slova))
+        (citaj image height ob-slova opciono))
        )
 ;      (println width)
 ;      (println height)
@@ -393,27 +387,32 @@
   )
 
 (defn tasks-fn
- [vektor-slika]
- (map (fn [[url width height]]
+ [vektor-slika
+  refs]
+ (map (fn [[url width height] thread-number]
        (fn []
         (dosync
-         (rw-image url width height "procitaj-tekst")
+         (alter refs conj (rw-image url width height "procitaj-tekst" thread-number))
          )
         )
-       )
-      vektor-slika))
+      )
+     vektor-slika
+     (range (count vektor-slika))
+  ))
 
 (defn multi-tasking
  [vektor-slika]
- (let [refs (ref "")
-       pool (Executors/newFixedThreadPool 3)
-       tasks (tasks-fn vektor-slika)]
+ (let [refs (ref (sorted-set))
+       pool (Executors/newFixedThreadPool 5)
+       tasks (tasks-fn vektor-slika refs)]
   (doseq [future (.invokeAll pool tasks)]
    (.get future)
    )
   (.shutdown pool)
 ;  (deref refs)
-;  (deref refs)
+  (doseq [[thread-number red] (deref refs)]
+   (println red)
+   )
   ))
 
 (defn procitaj-tekst
@@ -439,7 +438,13 @@
        red4 ["red4.jpg" 2048 97]
        red5 ["red5.jpg" 1900 86]]
 ;  (rw-image url width height "procitaj-tekst")
-   (multi-tasking [red1 red2 red3])
+   (multi-tasking [
+                   red1
+                   red2
+                   red3
+                   red4
+                   red5
+                   ])
   )
  )
 
@@ -452,6 +457,13 @@
                     ["G.jpg" 36 45 \Г]
                     ["n.jpg" 37 33 \н]
                     ["o.jpg" 33 33 \о]
+                    ["u.jpg" 34 34 \у]
+                    ["dot.jpg" 18 16 \.]
+                    ["S.jpg" 37 43 \С]
+                    ["k.jpg" 35 41 \к]
+                    ["minus.jpg" 37 11 \-]
+                    ["C.jpg" 33 41 \Ц]
+                    ["zj.jpg" 26 47 \ж]
                     ["p.jpg" 35 42 \п]
                     ["r.jpg" 35 32 \р]
                     ["s.jpg" 30 34 \с]
