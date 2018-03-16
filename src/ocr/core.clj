@@ -8,6 +8,15 @@
 
 (def slova (atom []))
 
+(defn clone-image
+ ""
+ [image]
+ (let [cm (.getColorModel image)
+       isAlphaPremultiplied (.isAlphaPremultiplied cm)
+       raster (.copyData image nil)
+       copied-image (BufferedImage. cm raster isAlphaPremultiplied nil)]
+  copied-image))
+
 (defn contrast
  ""
  [color
@@ -214,78 +223,49 @@
                    :broj-poklopljenih-tacaka 0
                    :razlika (Integer/MAX_VALUE)} results))
 
-(defn turn-into-positive
- ""
- [numb]
- (if (< numb 0)
-  (* numb -1)
-  numb))
-
-(defn tasks-fn
- [image
-  ob-slova
-  height
-  refs]
- (map (fn [[start end]]
-       (fn []
-        (dosync
-         (let [vektor-nepoznatog-slova (procitaj-nepoznato-slovo image [start end] height)
-;               test-a (println vektor-nepoznatog-slova)
-               poklapanja-slova (atom [])
-               trenutno-slovo (atom {})]
-          (doseq [[tacke slovo sirina visina] @slova]
-           (swap! trenutno-slovo assoc :slovo slovo :broj-poklopljenih-tacaka 0)
-           (let [poklopljene-tacke (atom 0)]
-            (doseq [par-s tacke]
-             (doseq [par-n vektor-nepoznatog-slova]
-              (when (= par-s
-                       par-n)
-               (swap! poklopljene-tacke inc))
-              )
-             )
-            (swap! trenutno-slovo assoc
-             :broj-poklopljenih-tacaka @poklopljene-tacke
-             :razlika (turn-into-positive (- (count tacke)
-                                             (count vektor-nepoznatog-slova))
-                                                  ))
-            (swap! poklapanja-slova conj @trenutno-slovo))
-           )
-;           (println @poklapanja-slova)
-;           (println (most-probable-vektor @poklapanja-slova))
-;           (swap! tekst str (:slovo (most-probable-vektor @poklapanja-slova))
-;            )
-           (alter refs str (:slovo (most-probable-vektor @poklapanja-slova))
-            ))
-         )
-         )
-       )
-      ob-slova))
-
-(defn multi-tasking
- [image
-  ob-slova
-  height]
- (let [refs (ref "")
-       pool (Executors/newFixedThreadPool 1)
-       tasks (tasks-fn image
-                       ob-slova
-                       height
-                       refs)]
-  (doseq [future (.invokeAll pool tasks)]
-   (.get future)
-   )
-  (.shutdown pool)
-;  (deref refs)
-  (deref refs)
-  ))
-
 (defn citaj
  ""
  [image
   height
   ob-slova]
- (let [tekst (multi-tasking image ob-slova height)]
-  (println tekst))
+ (let [tekst (atom "")
+       prethodni-end (atom 0)]
+  (doseq [[start end] ob-slova]
+   (let [vektor-nepoznatog-slova (procitaj-nepoznato-slovo image [start end] height)
+;         test-a (println vektor-nepoznatog-slova)
+         poklapanja-slova (atom [])
+         trenutno-slovo (atom {})]
+    (doseq [[tacke slovo sirina visina] @slova]
+     (swap! trenutno-slovo assoc :slovo slovo :broj-poklopljenih-tacaka 0)
+     (let [poklopljene-tacke (atom 0)]
+      (doseq [par-s tacke]
+       (doseq [par-n vektor-nepoznatog-slova]
+        (when (= par-s
+                 par-n)
+         (swap! poklopljene-tacke inc))
+        )
+       )
+      (swap! trenutno-slovo assoc
+       :broj-poklopljenih-tacaka @poklopljene-tacke
+       :razlika (Math/abs (- (count tacke)
+                             (count vektor-nepoznatog-slova))
+                 ))
+      (swap! poklapanja-slova conj @trenutno-slovo))
+     )
+;           (println @poklapanja-slova)
+;           (println (most-probable-vektor @poklapanja-slova))
+    (when (< 10
+             (- start
+                @prethodni-end))
+     (swap! tekst str " "))
+    (reset! prethodni-end end)
+    (swap! tekst str (:slovo (most-probable-vektor @poklapanja-slova))
+     )
+;     (alter refs str (:slovo (most-probable-vektor @poklapanja-slova))
+;      )
+    )
+   )
+  (println @tekst))
  )
 
 (defn procitaj-slovo
@@ -412,6 +392,30 @@
     ))
   )
 
+(defn tasks-fn
+ [vektor-slika]
+ (map (fn [[url width height]]
+       (fn []
+        (dosync
+         (rw-image url width height "procitaj-tekst")
+         )
+        )
+       )
+      vektor-slika))
+
+(defn multi-tasking
+ [vektor-slika]
+ (let [refs (ref "")
+       pool (Executors/newFixedThreadPool 3)
+       tasks (tasks-fn vektor-slika)]
+  (doseq [future (.invokeAll pool tasks)]
+   (.get future)
+   )
+  (.shutdown pool)
+;  (deref refs)
+;  (deref refs)
+  ))
+
 (defn procitaj-tekst
  ""
  []
@@ -429,10 +433,13 @@
        out10 ["out10.jpg" 1489 80]
        out10-a ["out10-a.jpg" 1489 80]
        out11 ["out11.jpg" 37 41]
-       [url
-        width
-        height] out3]
-  (rw-image url width height "procitaj-tekst")
+       red1 ["red1.jpg" 1489 80]
+       red2 ["red2.jpg" 329 61]
+       red3 ["red3.jpg" 954 80]
+       red4 ["red4.jpg" 2048 97]
+       red5 ["red5.jpg" 1900 86]]
+;  (rw-image url width height "procitaj-tekst")
+   (multi-tasking [red1 red2 red3])
   )
  )
 
