@@ -1,4 +1,4 @@
-(ns ocr.core
+(ns ocr-lib.core
  (:require [clojure.java.io :refer [resource file writer]]
            [clojure.set :refer [intersection difference union]])
  (:import [java.io File

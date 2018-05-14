@@ -1,4 +1,4 @@
-(ns ocr.threading
+(ns ocr-lib.threading
  (import [java.util.concurrent Executors]))
 
 (defn test-stm [nitems nthreads niters]
