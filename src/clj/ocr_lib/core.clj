@@ -176,14 +176,15 @@
   x-min
   x-max
   y-min
-  y-max]
+  y-max
+  hooks-value]
  (let [examining-area (atom #{})]
   (doseq [x (range x-min x-max)]
-   (doseq [y (range (- y-min 8) (dec y-min))]
+   (doseq [y (range (- y-min hooks-value) (dec y-min))]
     (swap! examining-area conj [x y]))
    )
   (doseq [x (range x-min x-max)]
-   (doseq [y (range (inc y-max) (+ y-max 8))]
+   (doseq [y (range (inc y-max) (+ y-max hooks-value))]
     (swap! examining-area conj [x y]))
    )
   (intersection all-dots @examining-area))
@@ -192,8 +193,8 @@
 (defn sort-row-elements
  "Function that sorts set elements
   (set is representing row)"
- [[x-min1 elem1]
-  [x-min2 elem2]]
+ [[[x-min1 _] elem1]
+  [[x-min2 _] elem2]]
   (< x-min1 x-min2))
 
 (defn add-into-sorted-set-fn
@@ -221,7 +222,7 @@
   (if (empty? row)
    (conj dots-sets-of-signs
          [[y-min y-max] (conj row-element
-                              [x-min sign-dots])])
+                              [[x-min x-max] sign-dots])])
    (let [dots-sets-of-signs (difference
                               dots-sets-of-signs
                               row)
@@ -248,7 +249,7 @@
      (doseq [el-s elem-s]
       (swap! new-row conj el-s))
      )
-    (swap! new-row conj [x-min sign-dots])
+    (swap! new-row conj [[x-min x-max] sign-dots])
     (conj dots-sets-of-signs
           [[@y-min-d @y-max-d] @new-row]))
    ))
@@ -259,7 +260,8 @@
  [all-dots
   dots-sets-of-signs
   width
-  height]
+  height
+  hooks-value]
  (if (empty? all-dots)
   dots-sets-of-signs
   (let [[x y] (first all-dots)
@@ -277,7 +279,8 @@
                          x-min
                          x-max
                          y-min
-                         y-max)
+                         y-max
+                         hooks-value)
         [all-dots sign-dots] (if (empty? dots-hooks-set)
                                       [all-dots sign-dots]
                                       (find-sign-dots-fn
@@ -297,7 +300,7 @@
                              y-max
                              sign-dots)]
     ;(println (count all-dots))
-    (recur all-dots dots-sets-of-signs width height))
+    (recur all-dots dots-sets-of-signs width height hooks-value))
   ))
 
 (defn read-signs-fn
@@ -402,6 +405,9 @@
  [image-byte-array
   light-value
   contrast-value
+  space-value
+  hooks-value
+  matching-value
   signs]
  (let [image (ImageIO/read (ByteArrayInputStream. image-byte-array))
        width (.getWidth image)
@@ -422,7 +428,8 @@
                      (< y-max1 y-min2))
                     )
                    width
-                   height)
+                   height
+                   hooks-value)
        signs-images (atom [])
        read-signs (read-signs-fn
                     signs
@@ -430,40 +437,57 @@
                     contrast-value)
        ]
   (doseq [[[y-min y-max] row] all-signs]
-   (doseq [[_ sign-dots] row]
-    (try
-     (let [zero-coordinates (bring-to-zero-coordinates-fn sign-dots)
-           {sign :sign
-            matching :matching} (check-matching-fn
-                                  zero-coordinates
-                                  read-signs)
-           [_ _ x-max y-max] (find-min-max-fn zero-coordinates)
-           width (inc x-max)
-           height (inc y-max)
-           image (.getSubimage
-                (ImageIO/read
-                 (ByteArrayInputStream. image-byte-array))
-                0
-                0
-                width
-                height)]
-      (if (< 70 matching)
-       (swap!
-        signs-images
-        conj
-        sign)
-       (do
-        (draw-sign image zero-coordinates)
+   (let [previous-sign-x-max (atom (Integer/MAX_VALUE))]
+    (doseq [[[x-min x-max] sign-dots] row]
+     (try
+      (let [zero-coordinates (bring-to-zero-coordinates-fn sign-dots)
+            {sign :sign
+             matching :matching} (check-matching-fn
+                                   zero-coordinates
+                                   read-signs)
+            [_ _ x-max y-max] (find-min-max-fn zero-coordinates)
+            width (inc x-max)
+            height (inc y-max)
+            image (.getSubimage
+                 (ImageIO/read
+                  (ByteArrayInputStream. image-byte-array))
+                 0
+                 0
+                 width
+                 height)
+            space-area (- x-min
+                          @previous-sign-x-max)]
+       (when (> space-area
+                space-value)
         (swap!
-          signs-images
-          conj
-          image))
+         signs-images
+         conj
+         " "))
+       (if (> matching
+              matching-value)
+        (swap!
+         signs-images
+         conj
+         sign)
+        (do
+         (draw-sign image zero-coordinates)
+         (swap!
+           signs-images
+           conj
+           image))
+        ))
+      (catch IOException e
+       (println "Error")
+       (println (.getMessage e))
        ))
-     (catch IOException e
-      (println "Error")
-      (println (.getMessage e))
-      ))
-    )
+      (reset!
+        previous-sign-x-max
+        x-max)
+     ))
+   (swap!
+     signs-images
+     conj
+     "\n")
    )
   @signs-images))
 
