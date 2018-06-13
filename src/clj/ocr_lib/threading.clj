@@ -105,3 +105,22 @@
      )
     (swap! x inc))
    (println @n-slovo))
+
+(let [task1 (fn []
+             (Thread/sleep 2000)
+             (println "task1"))
+      t1 (Thread. task1)
+      task3 (fn []
+             (Thread/sleep 2000)
+             (println "task3"))
+      t3 (Thread. task3)
+      task2 (fn []
+             (.join t1 500)
+             (.join t3 500)
+             (println "task2"))
+      t2 (Thread. task2)]
+ (.start t1)
+ (.start t2)
+ (.start t3)
+ )
+
