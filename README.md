@@ -1,4 +1,4 @@
-# server
+# Optical character recognition library
 
 Optical character recognition library
 
