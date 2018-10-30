@@ -1284,7 +1284,8 @@
    read-signs
    image-byte-array
    space-value
-   matching-value]
+   matching-value
+   unknown-sign-count-limit-per-thread]
   (let [unknown-signs-images (atom [])
         read-text (atom "")
         limit-count (atom 0)]
@@ -1328,13 +1329,18 @@
                     str
                     "*")
                   (when (< @limit-count
-                           1)
-                    (draw-sign image zero-coordinates)
+                           (or unknown-sign-count-limit-per-thread
+                               1))
+                    (draw-sign
+                      image
+                      zero-coordinates)
                     (swap!
                       unknown-signs-images
                       conj
                       image)
-                    (swap! limit-count inc))
+                    (swap!
+                      limit-count
+                      inc))
                  ))
              )
             (catch IOException e
@@ -1361,7 +1367,8 @@
          [read-signs
           image-byte-array
           space-value
-          matching-value]
+          matching-value
+          unknown-sign-count-limit-per-thread]
          thread-number]
       (fn []
         (dosync
@@ -1370,13 +1377,16 @@
                                   read-signs
                                   image-byte-array
                                   space-value
-                                  matching-value)]
+                                  matching-value
+                                  unknown-sign-count-limit-per-thread)]
             [thread-number
              matching-result]))
        ))
     refs
     params-n-times
-    (range (count refs))
+    (range
+      (count
+        refs))
    ))
 
 (defn match-unknown-signs-fn
@@ -1388,7 +1398,8 @@
    threads-value
    image-byte-array
    space-value
-   matching-value]
+   matching-value
+   unknown-sign-count-limit-per-thread]
   (let [final-result-text (atom "")
         final-result-unknown-signs-images (atom [])
         refs (divide-rows
@@ -1400,7 +1411,8 @@
                          [read-signs
                           image-byte-array
                           space-value
-                          matching-value])
+                          matching-value
+                          unknown-sign-count-limit-per-thread])
         tasks (match-unknown-signs-tasks-fn
                 refs
                 params-n-times)
@@ -1432,7 +1444,8 @@
    matching-value
    threads-value
    rows-threads-value
-   signs]
+   signs
+   unknown-sign-count-limit-per-thread]
   (let [all-signs (time
                     (read-unknown-signs-fn
                       image-byte-array
@@ -1454,6 +1467,7 @@
                          rows-threads-value
                          image-byte-array
                          space-value
-                         matching-value))]
+                         matching-value
+                         unknown-sign-count-limit-per-thread))]
     final-result))
 
