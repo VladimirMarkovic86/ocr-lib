@@ -1,4 +1,4 @@
-(defproject org.clojars.vladimirmarkovic86/ocr-lib "0.2.9"
+(defproject org.clojars.vladimirmarkovic86/ocr-lib "0.2.10"
   :description "Optical character recognition library"
   :url "http://github.com/VladimirMarkovic86/ocr-lib"
   :license {:name "Eclipse Public License"
