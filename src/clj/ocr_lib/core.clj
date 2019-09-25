@@ -1543,9 +1543,6 @@
    hooks-value
    n-threads]
   (when (and result-refs
-             (instance?
-               clojure.lang.Atom
-               result-refs)
              (set?
                @result-refs))
     (map
@@ -1557,11 +1554,12 @@
                            light-value
                            contrast-value
                            hooks-value)]
-           (swap!
-             result-refs
-             union
-             all-signs))
-       )
+           (dosync
+             (alter
+               result-refs
+               union
+               all-signs))
+          ))
       (range
         n-threads))
    ))
@@ -1581,7 +1579,7 @@
                image-byte-array))
     (let [n-threads (or n-threads
                         1)
-          result-refs (atom
+          result-refs (ref
                         (sorted-set-by
                           sort-rows))
           pool (Executors/newFixedThreadPool
@@ -1802,9 +1800,7 @@
    space-value
    matching-value
    unknown-sign-count-limit-per-thread]
-  (let [final-result-text (atom "")
-        final-result-unknown-signs-images (atom [])
-        threads-value (or threads-value
+  (let [threads-value (or threads-value
                           1)
         refs (divide-rows
                all-signs
@@ -1821,20 +1817,26 @@
                  (sorted-set)
                  (apply
                    pcalls
-                   tasks))]
-    (doseq [[_ [text unknown-signs-images]] result]
-      (swap!
-        final-result-text
-        str
-        text)
-      (doseq [unknown-sign-image unknown-signs-images]
-        (swap!
-          final-result-unknown-signs-images
-          conj
-          unknown-sign-image))
-      )
-    [@final-result-text
-     @final-result-unknown-signs-images]))
+                   tasks))
+        {final-result-text :text
+         final-result-unknown-signs-images :unknown-signs-images}
+          (reduce
+            (fn [{acc-text :text
+                  acc-unknown-signs-images :unknown-signs-images}
+                 [_ [text
+                     unknown-signs-images]]]
+              {:text (str
+                       acc-text
+                       text)
+               :unknown-signs-images (apply
+                                       conj
+                                       acc-unknown-signs-images
+                                       unknown-signs-images)})
+            {:text ""
+             :unknown-signs-images []}
+            result)]
+    [final-result-text
+     final-result-unknown-signs-images]))
 
 (defn read-image-fn
   "Read text from image"
