@@ -2613,11 +2613,21 @@
 (deftest test-read-unknown-signs-tasks-fn
   (testing "Test read unknown signs tasks fn"
     
-    (let [refs nil
+    (let [image-obj nil
+          light-value nil
+          contrast-value nil
+          space-value nil
+          hooks-value nil
+          n-threads nil
           result-refs nil
           result (read-unknown-signs-tasks-fn
-                   refs
-                   result-refs)]
+                   result-refs
+                   image-obj
+                   light-value
+                   contrast-value
+                   space-value
+                   hooks-value
+                   n-threads)]
       
       (is
         (nil?
@@ -2641,19 +2651,18 @@
           contrast-value nil
           space-value 16
           hooks-value 8
-          refs (repeat
-                 2
-                 [(ImageIO/read
-                    (ByteArrayInputStream.
-                      image-byte-array))
-                  light-value
-                  contrast-value
-                  space-value
-                  hooks-value])
+          n-threads 2
           result-refs nil
           result (read-unknown-signs-tasks-fn
-                   refs
-                   result-refs)]
+                   result-refs
+                   (ImageIO/read
+                     (ByteArrayInputStream.
+                       image-byte-array))
+                   light-value
+                   contrast-value
+                   space-value
+                   hooks-value
+                   n-threads)]
       
       (is
         (nil?
@@ -2677,21 +2686,20 @@
           contrast-value nil
           space-value 16
           hooks-value 8
-          refs (repeat
-                 2
-                 [(ImageIO/read
-                    (ByteArrayInputStream.
-                      image-byte-array))
-                  light-value
-                  contrast-value
-                  space-value
-                  hooks-value])
+          n-threads 2
           result-refs (atom
                         (sorted-set-by
                           sort-rows))
           result (read-unknown-signs-tasks-fn
-                   refs
-                   result-refs)]
+                   result-refs
+                   (ImageIO/read
+                     (ByteArrayInputStream.
+                       image-byte-array))
+                   light-value
+                   contrast-value
+                   space-value
+                   hooks-value
+                   n-threads)]
       
       (is
         (seq?
@@ -3003,10 +3011,18 @@
   (testing "Test match unknown signs tasks fn"
     
     (let [refs nil
-          params-n-times nil
+          read-signs nil
+          image-byte-array nil
+          space-value nil
+          matching-value nil
+          unknown-sign-count-limit-per-thread nil
           result (match-unknown-signs-tasks-fn
                    refs
-                   params-n-times)]
+                   read-signs
+                   image-byte-array
+                   space-value
+                   matching-value
+                   unknown-sign-count-limit-per-thread)]
       
       (is
         (seq?
@@ -3052,16 +3068,13 @@
           space-value nil
           matching-value nil
           unknown-sign-count-limit-per-thread nil
-          params-n-times (repeat
-                           new-thread-value
-                           [read-signs
-                            image-byte-array
-                            space-value
-                            matching-value
-                            unknown-sign-count-limit-per-thread])
           result (match-unknown-signs-tasks-fn
                    refs
-                   params-n-times)]
+                   read-signs
+                   image-byte-array
+                   space-value
+                   matching-value
+                   unknown-sign-count-limit-per-thread)]
       
       (is
         (seq?

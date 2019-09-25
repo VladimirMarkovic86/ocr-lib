@@ -1535,53 +1535,36 @@
 
 (defn read-unknown-signs-tasks-fn
   "Read unknown signs from image, n-threads parts in parallel"
-  [refs
-   result-refs]
-  (when (and refs
-             (seq?
-               refs)
-             (not
-               (empty?
-                 refs))
-             result-refs
+  [result-refs
+   image
+   light-value
+   contrast-value
+   space-value
+   hooks-value
+   n-threads]
+  (when (and result-refs
              (instance?
                clojure.lang.Atom
                result-refs)
              (set?
                @result-refs))
-    (let [refs-count (count
-                       refs)]
-      (map
-        (fn [[image
-              light-value
-              contrast-value
-              space-value
-              hooks-value]
-             thread-number
-             n-treads]
-          (fn []
-            (dosync
-              (let [all-signs (grouping-dots-one-part-fn
-                                image
-                                thread-number
-                                n-treads
-                                light-value
-                                contrast-value
-                                hooks-value)]
-                (swap!
-                  result-refs
-                  union
-                  all-signs))
-             ))
-         )
-        refs
-        (range
-          refs-count)
-        (repeat
-          refs-count
-          refs-count))
-     ))
- )
+    (map
+      (fn [thread-number]
+        #(let [all-signs (grouping-dots-one-part-fn
+                           image
+                           thread-number
+                           n-threads
+                           light-value
+                           contrast-value
+                           hooks-value)]
+           (swap!
+             result-refs
+             union
+             all-signs))
+       )
+      (range
+        n-threads))
+   ))
 
 (defn read-unknown-signs-fn
   "Read unknown signs from image
@@ -1598,23 +1581,22 @@
                image-byte-array))
     (let [n-threads (or n-threads
                         1)
-          refs (repeat
-                 n-threads
-                 [(ImageIO/read
-                    (ByteArrayInputStream.
-                      image-byte-array))
-                  light-value
-                  contrast-value
-                  space-value
-                  hooks-value])
           result-refs (atom
                         (sorted-set-by
                           sort-rows))
           pool (Executors/newFixedThreadPool
                  n-threads)
+          image-obj (ImageIO/read
+                      (ByteArrayInputStream.
+                        image-byte-array))
           tasks (read-unknown-signs-tasks-fn
-                  refs
-                  result-refs)]
+                  result-refs
+                  image-obj
+                  light-value
+                  contrast-value
+                  space-value
+                  hooks-value
+                  n-threads)]
       (doseq [future (.invokeAll
                        pool
                        tasks)]
@@ -1786,29 +1768,24 @@
 (defn match-unknown-signs-tasks-fn
   "Match unknown signs from image"
   [refs
-   params-n-times]
+   read-signs
+   image-byte-array
+   space-value
+   matching-value
+   unknown-sign-count-limit-per-thread]
   (map
     (fn [rows-set
-         [read-signs
-          image-byte-array
-          space-value
-          matching-value
-          unknown-sign-count-limit-per-thread]
          thread-number]
-      (fn []
-        (dosync
-          (let [matching-result (maching-unknown-signs-fn
-                                  rows-set
-                                  read-signs
-                                  image-byte-array
-                                  space-value
-                                  matching-value
-                                  unknown-sign-count-limit-per-thread)]
-            [thread-number
-             matching-result]))
-       ))
+      #(let [matching-result (maching-unknown-signs-fn
+                               rows-set
+                               read-signs
+                               image-byte-array
+                               space-value
+                               matching-value
+                               unknown-sign-count-limit-per-thread)]
+         [thread-number
+          matching-result]))
     refs
-    params-n-times
     (range
       (count
         refs))
@@ -1832,18 +1809,13 @@
         refs (divide-rows
                all-signs
                threads-value)
-        new-thread-value (count
-                           refs)
-        params-n-times (repeat
-                         new-thread-value
-                         [read-signs
-                          image-byte-array
-                          space-value
-                          matching-value
-                          unknown-sign-count-limit-per-thread])
         tasks (match-unknown-signs-tasks-fn
                 refs
-                params-n-times)
+                read-signs
+                image-byte-array
+                space-value
+                matching-value
+                unknown-sign-count-limit-per-thread)
         result (apply
                  conj
                  (sorted-set)
