@@ -416,7 +416,6 @@
                   image)
           height (.getHeight
                    image)
-          all-dots (atom #{})
           condition-i (> (dec
                            start-y)
                          -1)
@@ -430,68 +429,75 @@
           end-y-inc (if condition-ii
                       (inc
                         end-y)
-                      end-y)
-          white-lines (atom
-                        (sorted-set))]
-      (dotimes [x width]
-        (doseq [y (range
-                    start-y-dec
-                    end-y-inc)]
-          (let [p (.getRGB
-                    image
-                    x
-                    y)
-                a (bit-and ; transparency
-                    (bit-shift-right
-                      p
-                      24)
-                    127)
-                r (bit-and ; red
-                    (bit-shift-right
-                      p
-                      16)
-                    255)
-                g (bit-and ; green
-                    (bit-shift-right
-                      p
-                      8)
-                    255)
-                b (bit-and ; blue
-                    (bit-shift-right
-                      p
-                      0)
-                    255)
-                avg (int
-                      (/ (+ r
-                            g
-                            b
-                            (* (or light-value
-                                   0)
-                                3))
-                          3))
-                contrast-value (or contrast-value
-                                   128)]
-            (when (and
-                    (not
-                      (or (and (= start-y-dec
-                                  y)
-                               condition-i)
-                          (and (= (dec
-                                    end-y-inc)
-                                  y)
-                               condition-ii))
-                     )
-                    (= (contrast-fn
-                         avg
-                         contrast-value)
-                       0))
-              (swap!
-                all-dots
-                conj
-                [x y]))
-           ))
-       )
-      @all-dots))
+                      end-y)]
+      (reduce
+        (fn [acc-all-dots
+             x]
+          (reduce
+            (fn [acc-all-dots-i
+                 y]
+              (let [p (.getRGB
+                        image
+                        x
+                        y)
+                    a (bit-and ; transparency
+                        (bit-shift-right
+                          p
+                          24)
+                        127)
+                    r (bit-and ; red
+                        (bit-shift-right
+                          p
+                          16)
+                        255)
+                    g (bit-and ; green
+                        (bit-shift-right
+                          p
+                          8)
+                        255)
+                    b (bit-and ; blue
+                        (bit-shift-right
+                          p
+                          0)
+                        255)
+                    avg (int
+                          (/ (+ r
+                                g
+                                b
+                                (* (or light-value
+                                       0)
+                                    3))
+                              3))
+                    contrast-value (or contrast-value
+                                       128)]
+                (if (and
+                        (not
+                          (or (and (= start-y-dec
+                                      y)
+                                   condition-i)
+                              (and (= (dec
+                                        end-y-inc)
+                                      y)
+                                   condition-ii))
+                         )
+                        (= (contrast-fn
+                             avg
+                             contrast-value)
+                           0))
+                  (conj
+                    acc-all-dots-i
+                    [x y])
+                  acc-all-dots-i))
+             )
+            acc-all-dots
+            (range
+              start-y-dec
+              end-y-inc))
+         )
+        #{}
+        (range
+          width))
+     ))
  )
 
 (defn dot-is-black?
@@ -642,39 +648,40 @@
                (empty?
                  dots-set))
          )
-    (let [x-min (atom (Integer/MAX_VALUE))
-          y-min (atom (Integer/MAX_VALUE))
-          x-max (atom 0)
-          y-max (atom 0)]
-     (doseq [dot-pair dots-set]
-       (when (and dot-pair
-                  (vector?
-                    dot-pair))
-         (let [[x y] dot-pair]
-           (when (< x
-                    @x-min)
-             (reset!
-               x-min
-               x))
-           (when (< y
-                    @y-min)
-             (reset!
-               y-min
-               y))
-           (when (< @x-max
+    (reduce
+      (fn [[acc-x-min
+            acc-y-min
+            acc-x-max
+            acc-y-max]
+           element]
+        (if (vector?
+              element)
+          (let [[x y] element]
+            [(if (< x
+                    acc-x-min)
+               x
+               acc-x-min)
+             (if (< y
+                    acc-y-min)
+               y
+               acc-y-min)
+             (if (< acc-x-max
                     x)
-             (reset!
-               x-max
-               x))
-           (when (< @y-max
+               x
+               acc-x-max)
+             (if (< acc-y-max
                     y)
-             (reset!
-               y-max
-               y))
-          ))
-      )
-     [@x-min @y-min
-      @x-max @y-max]))
+               y
+               acc-y-max)])
+          [acc-x-min
+           acc-y-min
+           acc-x-max
+           acc-y-max]))
+      [Integer/MAX_VALUE
+       Integer/MAX_VALUE
+       0
+       0]
+      dots-set))
  )
 
 (defn find-dots-hooks-fn
@@ -704,36 +711,43 @@
              hooks-value
              (number?
                hooks-value))
-    (let [examining-area (atom #{})]
-      (doseq [x (range
-                  x-min
-                  x-max)]
-        (doseq [y (range
-                    (- y-min
-                       hooks-value)
-                    (dec
-                      y-min))]
-          (swap!
-            examining-area
-            conj
-            [x y]))
-       )
-      (doseq [x (range
-                  x-min
-                  x-max)]
-        (doseq [y (range
-                    (inc
-                      y-max)
-                    (+ y-max
-                       hooks-value))]
-          (swap!
-            examining-area
-            conj
-            [x y]))
-       )
+    (let [examining-area (reduce
+                           (fn [acc-set
+                                x]
+                             (let [hooks-above-sign-set (reduce
+                                                          (fn [acc-set-i
+                                                               y]
+                                                            (conj
+                                                              acc-set-i
+                                                              [x y]))
+                                                          acc-set
+                                                          (range
+                                                            (- y-min
+                                                               hooks-value)
+                                                            (dec
+                                                              y-min))
+                                                         )]
+                               (reduce
+                                 (fn [acc-set-i
+                                      y]
+                                   (conj
+                                     acc-set-i
+                                     [x y]))
+                                 hooks-above-sign-set
+                                 (range
+                                   (inc
+                                     y-max)
+                                   (+ y-max
+                                      hooks-value))
+                                ))
+                            )
+                           #{}
+                           (range
+                             x-min
+                             x-max))]
       (intersection
         all-dots
-        @examining-area))
+        examining-area))
    ))
 
 (defn sort-row-elements
@@ -741,18 +755,14 @@
    (set is representing row with signs)"
   [[[x-min1 x-max1] elem1]
    [[x-min2 x-max2] elem2]]
-  (when (and x-min1
-             (number?
+  (when (and (number?
                x-min1)
-             x-min2
              (number?
                x-min2)
-             x-max1
              (number?
                x-max1)
-             x-max2
              (number?
-               x-max1))
+               x-max2))
     (or (< x-min1 x-min2)
         (< x-max1 x-max2))
    ))
@@ -762,16 +772,12 @@
    (set is representing page with rows)"
   [[[y-min1 y-max1] elem1]
    [[y-min2 y-max2] elem2]]
-  (when (and y-min1
-             (number?
+  (when (and (number?
                y-min1)
-             y-max1
              (number?
                y-max1)
-             y-min2
              (number?
                y-min2)
-             y-max2
              (number?
                y-max2))
     (and (< y-max1 y-min2)
@@ -828,41 +834,43 @@
               first-row (first
                           row)
               [[y-min-r y-max-r] elem-r] first-row
-              y-min-d (atom
-                        (if (< y-min
-                               y-min-r)
-                          y-min
-                          y-min-r))
-              y-max-d (atom
-                        (if (< y-max
-                               y-max-r)
-                          y-max-r
-                          y-max))
-              new-row (atom
-                        (sorted-set-by
-                          sort-row-elements))]
-          (doseq [[[y-min-s y-max-s] elem-s] row]
-            (when (< y-min-s @y-min-d)
-              (reset!
-                y-min-d
-                y-min-s))
-            (when (< @y-max-d y-min-s)
-              (reset!
-                y-max-d
-                y-max-s))
-            (doseq [el-s elem-s]
-              (swap!
-                new-row
-                conj
-                el-s))
-           )
-          (swap!
-            new-row
-            conj
-            [[x-min x-max] sign-dots])
+              [new-row
+               y-min-d
+               y-max-d]
+                (reduce
+                  (fn [[acc-new-row
+                        acc-y-min-d
+                        acc-y-max-d]
+                       [[y-min-s y-max-s] elem-s]]
+                    [(apply
+                       conj
+                       acc-new-row
+                       elem-s)
+                     (if (< y-min-s
+                            acc-y-min-d)
+                       y-min-s
+                       acc-y-min-d)
+                     (if (< acc-y-max-d
+                            y-min-s)
+                       y-max-s
+                       acc-y-max-d)])
+                  [(sorted-set-by
+                     sort-row-elements)
+                   (if (< y-min
+                          y-min-r)
+                     y-min
+                     y-min-r)
+                   (if (< y-max
+                          y-max-r)
+                     y-max-r
+                     y-max)]
+                  row)
+              new-row (conj
+                        new-row
+                        [[x-min x-max] sign-dots])]
           (conj
             dots-sets-of-signs
-            [[@y-min-d @y-max-d] @new-row]))
+            [[y-min-d y-max-d] new-row]))
        ))
    ))
 
@@ -954,100 +962,111 @@
   (when (and signs
              (map?
                signs))
-    (let [signs-dots (atom {})
-          signs-keys (keys
+    (let [signs-keys (keys
                        signs)]
-      (doseq [s-key signs-keys]
-        (let [images-sign-vector (s-key
-                                   signs)
-              s-key-value (atom [])]
-          (when (and images-sign-vector
-                     (vector?
-                       images-sign-vector))
-            (doseq [image-byte-array images-sign-vector]
-              (let [image (ImageIO/read
-                            (ByteArrayInputStream.
-                              image-byte-array))
-                    all-dots (read-black-dots-fn
-                               image
-                               light-value
-                               contrast-value)]
-               (swap!
-                 s-key-value
-                 conj
-                 all-dots))
-             ))
-          (swap!
-            signs-dots
-            assoc
-            s-key
-            @s-key-value))
-       )
-      @signs-dots))
- )
+      (reduce
+        (fn [acc-map
+             s-key]
+          (let [images-sign-vector (s-key
+                                     signs)]
+            (assoc
+              acc-map
+              s-key
+              (if (vector?
+                    images-sign-vector)
+                (reduce
+                  (fn [acc-vec
+                       image-byte-array]
+                    (let [image (ImageIO/read
+                                  (ByteArrayInputStream.
+                                    image-byte-array))
+                          all-dots (read-black-dots-fn
+                                     image
+                                     light-value
+                                     contrast-value)]
+                     (conj
+                       acc-vec
+                       all-dots))
+                   )
+                  []
+                  images-sign-vector)
+                []))
+           ))
+        {}
+        signs-keys))
+   ))
 
 (defn bring-to-zero-coordinates-fn
   "Bring coordinates from dots-set parameter to minimal positive values"
   [dots-set]
   (let [[x-min y-min
          x-max y-max] (find-min-max-fn
-                        dots-set)
-        new-dots-set (atom #{})]
-    (doseq [element dots-set]
-      (when (and element
-                 (vector?
-                   element))
-        (let [[x y] element]
-          (swap!
-            new-dots-set
-            conj
-            [(- x x-min) (- y y-min)])
-         ))
-     )
-    @new-dots-set))
+                        dots-set)]
+    (reduce
+      (fn [acc-set
+           element]
+        (if (vector?
+              element)
+          (let [[x y] element]
+            (conj
+              acc-set
+              [(- x x-min) (- y y-min)])
+           )
+          acc-set))
+      #{}
+      dots-set))
+ )
 
 (defn check-matching-fn
   "Check matching of zero coordinates unknown sign
    with all known signs and return sign and matching percentage"
   [zero-coordinates
    read-signs]
-  (let [result (atom {:sign ""
-                      :matching 0})
-        signs-keys (keys
+  (let [signs-keys (keys
                      read-signs)]
-    (doseq [s-key signs-keys]
-      (let [known-sign-vector (s-key
-                                read-signs)]
-        (when (and known-sign-vector
-                   (vector?
-                     known-sign-vector))
-          (doseq [dots-set (s-key
-                             read-signs)]
-            (let [intersection-count (count
-                                       (intersection
-                                         zero-coordinates
-                                         dots-set))
-                  union-count (count
-                                (union
-                                  zero-coordinates
-                                  dots-set))
-                  matching-percentage (double
-                                        (/ (* intersection-count
-                                              100)
-                                           union-count))
-                  matching (:matching @result)]
-              (when (< matching
-                       matching-percentage)
-                (swap!
-                  result
-                  assoc
-                  :sign (name
-                          s-key)
-                  :matching matching-percentage))
-             ))
-         ))
-     )
-    @result))
+    (reduce
+      (fn [{acc-sign :sign
+            acc-matching :matching}
+           s-key]
+        (let [known-sign-vector (s-key
+                                  read-signs)]
+          (if (vector?
+                known-sign-vector)
+            (reduce
+              (fn [{acc-sign-i :sign
+                    acc-matching-i :matching}
+                   dots-set]
+                (let [intersection-count (count
+                                           (intersection
+                                             zero-coordinates
+                                             dots-set))
+                      union-count (count
+                                    (union
+                                      zero-coordinates
+                                      dots-set))
+                      matching-percentage (double
+                                            (/ (* intersection-count
+                                                  100)
+                                               union-count))]
+                  (if (< acc-matching-i
+                         matching-percentage)
+                    {:sign (name
+                             s-key)
+                     :matching matching-percentage}
+                    {:sign acc-sign-i
+                     :matching acc-matching-i}))
+               )
+              {:sign acc-sign
+               :matching acc-matching}
+              (s-key
+                read-signs))
+            {:sign acc-sign
+             :matching acc-matching}))
+       )
+      {:sign ""
+       :matching 0}
+      signs-keys))
+ )
 
 (defn draw-sign
   "Draw image in image parameter"
@@ -1121,17 +1140,13 @@
    light-value
    contrast-value
    hooks-value]
-  (when (and image
-             (instance?
+  (when (and (instance?
                BufferedImage
                image)
-             n-threads
              (number?
                n-threads)
-             thread-number
              (number?
                thread-number)
-             hooks-value
              (number?
                hooks-value))
     (let [width (.getWidth
@@ -1183,51 +1198,40 @@
    new-x-max
    new-sign
    row]
-  (when (and selected-signs-set
-             (set?
+  (when (and (set?
                selected-signs-set)
-             new-x-min
-             (instance?
-               clojure.lang.Atom
+             (number?
                new-x-min)
              (number?
-               @new-x-min)
-             new-x-max
-             (instance?
-               clojure.lang.Atom
                new-x-max)
-             (number?
-               @new-x-max)
-             new-sign
-             (instance?
-               clojure.lang.Atom
-               new-sign)
              (set?
-               @new-sign)
-             row
-             (instance?
-               clojure.lang.Atom
-               row))
-    (doseq [[[x-min x-max] sign] selected-signs-set]
-      (when (< x-min
-               @new-x-min)
-        (reset!
-          new-x-min
-          x-min))
-      (when (< @new-x-max
-               x-max)
-        (reset!
-          new-x-max
-          x-max))
-      (swap!
-        new-sign
-        union
-        sign)
-      (swap!
-        row
-        disj
-        [[x-min x-max] sign]))
-    true))
+               new-sign))
+    (reduce
+      (fn [[acc-new-x-min
+            acc-new-x-max
+            acc-new-sign
+            acc-row]
+           [[x-min x-max] sign]]
+        [(if (< x-min
+                acc-new-x-min)
+           x-min
+           acc-new-x-min)
+         (if (< acc-new-x-max
+                x-max)
+           x-max
+           acc-new-x-max)
+         (union
+           acc-new-sign
+           sign)
+         (disj
+           acc-row
+           [[x-min x-max] sign])])
+      [new-x-min
+       new-x-max
+       new-sign
+       row]
+      selected-signs-set))
+ )
 
 (defn merge-sign-coordinates-concrete
   "Merge sign parts from both row parts"
@@ -1236,74 +1240,59 @@
    new-sign
    new-x-min
    new-x-max]
-  (when (and row-f
-             (instance?
-               clojure.lang.Atom
+  (when (and (set?
                row-f)
              (set?
-               @row-f)
-             row-s
-             (instance?
-               clojure.lang.Atom
                row-s)
              (set?
-               @row-s)
-             new-sign
-             (instance?
-               clojure.lang.Atom
                new-sign)
-             (set?
-               @new-sign)
-             new-x-min
-             (instance?
-               clojure.lang.Atom
+             (number?
                new-x-min)
              (number?
-               @new-x-min)
-             new-x-max
-             (instance?
-               clojure.lang.Atom
-               new-x-max)
-             (number?
-               @new-x-max))
+               new-x-max))
     (let [select-pred? (fn [[[x-min x-max] sign]]
-                         (when (and x-min
-                                    (number?
+                         (when (and (number?
                                       x-min)
-                                    x-max
                                     (number?
                                       x-max))
-                           (or (<= x-min @new-x-min x-max)
-                               (<= x-min @new-x-max x-max)
-                               (<= @new-x-min x-min @new-x-max)
-                               (<= @new-x-min x-max @new-x-max))
+                           (or (<= x-min new-x-min x-max)
+                               (<= x-min new-x-max x-max)
+                               (<= new-x-min x-min new-x-max)
+                               (<= new-x-min x-max new-x-max))
                           ))
           selected-signs-set-f (select
                                  select-pred?
-                                 @row-f)
+                                 row-f)
           selected-signs-set-s (select
                                  select-pred?
-                                 @row-s)]
+                                 row-s)]
       (if (and (empty?
                  selected-signs-set-f)
                (empty?
                  selected-signs-set-s))
-        [[@new-x-min
-          @new-x-max]
-         @new-sign]
-        (do
-          (merge-and-disj
-            selected-signs-set-f
-            new-x-min
-            new-x-max
-            new-sign
-            row-f)
-          (merge-and-disj
-            selected-signs-set-s
-            new-x-min
-            new-x-max
-            new-sign
-            row-s)
+        [[[new-x-min
+           new-x-max]
+          new-sign]
+         row-f
+         row-s]
+        (let [[new-x-min
+               new-x-max
+               new-sign
+               row-f] (merge-and-disj
+                        selected-signs-set-f
+                        new-x-min
+                        new-x-max
+                        new-sign
+                        row-f)
+              [new-x-min
+               new-x-max
+               new-sign
+               row-s] (merge-and-disj
+                        selected-signs-set-s
+                        new-x-min
+                        new-x-max
+                        new-sign
+                        row-s)]
           (recur
             row-f
             row-s
@@ -1321,46 +1310,22 @@
    new-sign
    new-x-min
    new-x-max]
-  (when (and row-f
-             (instance?
-               clojure.lang.Atom
+  (when (and (set?
                row-f)
              (set?
-               @row-f)
-             row-s
-             (instance?
-               clojure.lang.Atom
                row-s)
              (set?
-               @row-s)
-             result
-             (instance?
-               clojure.lang.Atom
                result)
              (set?
-               @result)
-             new-sign
-             (instance?
-               clojure.lang.Atom
                new-sign)
-             (set?
-               @new-sign)
-             new-x-min
-             (instance?
-               clojure.lang.Atom
+             (number?
                new-x-min)
              (number?
-               @new-x-min)
-             new-x-max
-             (instance?
-               clojure.lang.Atom
-               new-x-max)
-             (number?
-               @new-x-max))
+               new-x-max))
     (let [condition-i (empty?
-                        @row-f)
+                        row-f)
           condition-ii (empty?
-                         @row-s)
+                         row-s)
           condition-iii (and (not condition-i)
                              condition-ii)
           condition-iv (and (not condition-ii)
@@ -1370,97 +1335,56 @@
           condition-vi (and (not condition-i)
                             (not condition-ii))
           condition-vii (empty?
-                          @new-sign)
-          swap-apply-fn (fn [param1
-                             param-fn
-                             param2]
-                          (apply
-                            param-fn
-                            param1
-                            param2))]
+                          new-sign)]
       (if condition-v
-        @result
+        result
         (if condition-iii
-          (do
-            (swap!
-              result
-              swap-apply-fn
+          (recur
+            (empty
+              row-f)
+            row-s
+            (apply
               conj
-              @row-f)
-            (swap!
-              row-f
-              empty)
+              result
+              row-f)
+            new-sign
+            new-x-min
+            new-x-max)
+          (if condition-iv
             (recur
               row-f
-              row-s
-              result
+              (empty
+                row-s)
+              (apply
+                conj
+                result
+                row-s)
               new-sign
               new-x-min
-              new-x-max))
-          (if condition-iv
-            (do
-              (swap!
-                result
-                swap-apply-fn
-                conj
-                @row-s)
-              (swap!
-                row-s
-                empty)
-              (recur
-                row-f
-                row-s
-                result
-                new-sign
-                new-x-min
-                new-x-max))
-             (let [[[x-min-f x-max-f] sign-f] (first @row-f)
-                   selected-signs-set-s (select
-                                          (fn [[[x-min x-max] sign]]
-                                            (or (<= x-min x-min-f x-max)
-                                                (<= x-min x-max-f x-max)
-                                                (<= x-min-f x-min x-max-f)
-                                                (<= x-min-f x-max x-max-f))
-                                           )
-                                          @row-s)]
-               (reset!
-                 new-x-min
-                 x-min-f)
-               (reset!
-                 new-x-max
-                 x-max-f)
-               (reset!
-                 new-sign
-                 sign-f)
-               (swap!
-                 row-f
-                 disj
-                 [[x-min-f x-max-f] sign-f])
-               (swap!
-                 result
-                 conj
-                 (merge-sign-coordinates-concrete
+              new-x-max)
+            (let [[[x-min-f x-max-f] sign-f] (first
+                                               row-f)
+                  row-f (disj
+                          row-f
+                          [[x-min-f x-max-f] sign-f])
+                  [new-sign-result
                    row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max))
-               (reset!
-                 new-x-min
-                 (Integer/MAX_VALUE))
-               (reset!
-                 new-x-max
-                 0)
-               (reset!
-                 new-sign
-                 #{})
+                   row-s] (merge-sign-coordinates-concrete
+                            row-f
+                            row-s
+                            sign-f
+                            x-min-f
+                            x-max-f)
+                  result (conj
+                           result
+                           new-sign-result)]
                (recur
                  row-f
                  row-s
                  result
-                 new-sign
-                 new-x-min
-                 new-x-max))
+                 #{}
+                 Integer/MAX_VALUE
+                 0))
               ))
        ))
    ))
@@ -1473,46 +1397,46 @@
                sorted-rows-set))
     (let [{[[y-min-p y-max-p] row-p] :previous
            result :result} (reduce
-                             (fn [{result :result
-                                   previous :previous}
+                             (fn [{acc-result :result
+                                   acc-previous :previous}
                                   [[y-min-c
                                     y-max-c]
                                    row-c]]
-                               (when-let [[[y-min-p y-max-p] row-p] previous]
+                               (if-let [[[y-min-p y-max-p] row-p] acc-previous]
                                  (if (= y-min-c
                                         (inc
                                           y-max-p))
-                                   (swap!
-                                     result
-                                     conj
-                                     [[y-min-p
-                                       y-max-c]
-                                      (merge-sign-coordinates
-                                        (atom row-p)
-                                        (atom row-c)
-                                        (atom
-                                          (sorted-set-by
-                                            sort-row-elements))
-                                        (atom #{})
-                                        (atom (Integer/MAX_VALUE))
-                                        (atom 0))]
-                                    )
-                                   (swap!
-                                     result
-                                     conj
-                                     [[y-min-p y-max-p] row-p]))
-                                )
-                               {:result result
-                                :previous [[y-min-c
-                                            y-max-c]
-                                           row-c]})
-                             {:result (atom
-                                        (sorted-set-by
-                                          sort-rows))
+                                   {:result (conj
+                                              acc-result
+                                              [[y-min-p
+                                                y-max-c]
+                                               (merge-sign-coordinates
+                                                 row-p
+                                                 row-c
+                                                 (sorted-set-by
+                                                   sort-row-elements)
+                                                 #{}
+                                                 Integer/MAX_VALUE
+                                                 0)])
+                                    :previous [[y-min-c
+                                                y-max-c]
+                                               row-c]}
+                                   {:result (conj
+                                              acc-result
+                                              [[y-min-p y-max-p] row-p])
+                                    :previous [[y-min-c
+                                                y-max-c]
+                                               row-c]})
+                                 {:result acc-result
+                                  :previous [[y-min-c
+                                              y-max-c]
+                                             row-c]}))
+                             {:result (sorted-set-by
+                                        sort-rows)
                               :previous nil}
                              sorted-rows-set)
           [[y-min-l y-max-l] row-l] (last
-                                      @result)
+                                      result)
           y-min-l (or y-min-l
                       -1)
           y-max-l (or y-max-l
@@ -1526,40 +1450,34 @@
                               (<= y-min-l y-min-p y-max-l)
                               (<= y-min-l y-max-p y-max-l))
           final-result (if previous-merged
-                         @result
+                         result
                          (conj
-                           @result
+                           result
                            [[y-min-p y-max-p] row-p]))]
       final-result))
  )
 
 (defn read-unknown-signs-tasks-fn
   "Read unknown signs from image, n-threads parts in parallel"
-  [result-refs
-   image
+  [image
    light-value
    contrast-value
    space-value
    hooks-value
    n-threads]
-  (when (and result-refs
-             (set?
-               @result-refs))
+  (when n-threads
     (map
       (fn [thread-number]
-        #(let [all-signs (grouping-dots-one-part-fn
-                           image
-                           thread-number
-                           n-threads
-                           light-value
-                           contrast-value
-                           hooks-value)]
-           (dosync
-             (alter
-               result-refs
-               union
-               all-signs))
-          ))
+        #(dosync
+           (let [all-signs (grouping-dots-one-part-fn
+                             image
+                             thread-number
+                             n-threads
+                             light-value
+                             contrast-value
+                             hooks-value)]
+             all-signs))
+       )
       (range
         n-threads))
    ))
@@ -1579,30 +1497,25 @@
                image-byte-array))
     (let [n-threads (or n-threads
                         1)
-          result-refs (ref
-                        (sorted-set-by
-                          sort-rows))
-          pool (Executors/newFixedThreadPool
-                 n-threads)
           image-obj (ImageIO/read
                       (ByteArrayInputStream.
                         image-byte-array))
           tasks (read-unknown-signs-tasks-fn
-                  result-refs
                   image-obj
                   light-value
                   contrast-value
                   space-value
                   hooks-value
-                  n-threads)]
-      (doseq [future (.invokeAll
-                       pool
-                       tasks)]
-        (.get future))
-      (.shutdown
-        pool)
+                  n-threads)
+          result (apply
+                   union
+                   (sorted-set-by
+                     sort-rows)
+                   (apply
+                     pcalls
+                     tasks))]
       (merge-separated-parts
-        @result-refs))
+        result))
    ))
 
 (defn divide-rows
@@ -1685,83 +1598,103 @@
    space-value
    matching-value
    unknown-sign-count-limit-per-thread]
-  (let [unknown-signs-images (atom [])
-        read-text (atom "")
-        limit-count (atom 0)]
-    (doseq [[[y-min y-max] row] all-signs]
-      (let [previous-sign-x-max (atom (Integer/MAX_VALUE))]
-        (doseq [[[x-min x-max] sign-dots] row]
-          (try
-            (let [zero-coordinates (bring-to-zero-coordinates-fn
-                                     sign-dots)
-                  {sign :sign
-                   matching :matching} (check-matching-fn
-                                         zero-coordinates
-                                         read-signs)
-                  [_ _ x-max y-max] (find-min-max-fn
-                                      zero-coordinates)
-                  width (inc
-                          x-max)
-                  height (inc
-                           y-max)
-                  image (.getSubimage
-                          (ImageIO/read
-                            (ByteArrayInputStream.
-                              image-byte-array))
-                          0
-                          0
-                          width
-                          height)
-                  space-area (- x-min
-                                @previous-sign-x-max)]
-              (when (> space-area
-                       (or space-value
-                           16))
-                (swap!
-                  read-text
-                  str
-                  " "))
-              (if (> matching
-                     (or matching-value
-                         70))
-                (swap!
-                  read-text
-                  str
-                  sign)
-                (do
-                  (swap!
-                    read-text
-                    str
-                    "*")
-                  (when (< @limit-count
-                           (or unknown-sign-count-limit-per-thread
-                               1))
-                    (draw-sign
-                      image
-                      zero-coordinates)
-                    (swap!
-                      unknown-signs-images
-                      conj
-                      image)
-                    (swap!
-                      limit-count
-                      inc))
-                 ))
-             )
-            (catch IOException e
-              (println "Error")
-              (println (.getMessage e))
-             ))
-          (reset!
-            previous-sign-x-max
-            x-max))
-       )
-      (swap!
-        read-text
-        str
-        "\n"))
-    [@read-text
-     @unknown-signs-images]))
+  (reduce
+    (fn [[acc-read-text
+          acc-unknown-signs-images
+          acc-limit-count]
+         [[y-min y-max] row]]
+      (let [[res-read-text
+             res-unknown-signs-images
+             res-limit-count]
+             (reduce
+               (fn [[acc-read-text-i
+                     acc-unknown-signs-images-i
+                     acc-limit-count-i
+                     acc-previous-sign-x-max-i]
+                    [[x-min x-max] sign-dots]]
+                 (try
+                   (let [zero-coordinates (bring-to-zero-coordinates-fn
+                                            sign-dots)
+                         {sign :sign
+                          matching :matching} (check-matching-fn
+                                                zero-coordinates
+                                                read-signs)
+                         space-area (- x-min
+                                       acc-previous-sign-x-max-i)]
+                     [(str
+                        acc-read-text-i
+                        (when (> space-area
+                                 (or space-value
+                                     16))
+                          " ")
+                        (if (> matching
+                               (or matching-value
+                                   70))
+                          sign
+                          "*"))
+                      (if (> matching
+                             (or matching-value
+                                 70))
+                        acc-unknown-signs-images-i
+                        (if (< acc-limit-count-i
+                               (or unknown-sign-count-limit-per-thread
+                                   1))
+                          (conj
+                            acc-unknown-signs-images-i
+                            (let [[_ _ x-max y-max] (find-min-max-fn
+                                                      zero-coordinates)
+                                  width (inc
+                                          x-max)
+                                  height (inc
+                                           y-max)
+                                  image (.getSubimage
+                                          (ImageIO/read
+                                            (ByteArrayInputStream.
+                                              image-byte-array))
+                                          0
+                                          0
+                                          width
+                                          height)]
+                              (draw-sign
+                                image
+                                zero-coordinates)
+                              image))
+                          acc-unknown-signs-images-i))
+                      (if (and (not
+                                 (> matching
+                                    (or matching-value
+                                        70))
+                                )
+                               (< acc-limit-count-i
+                                  (or unknown-sign-count-limit-per-thread
+                                      1))
+                           )
+                        (inc
+                          acc-limit-count-i)
+                        acc-limit-count-i)
+                      x-max])
+                   (catch IOException e
+                     (println "Error")
+                     (println (.getMessage e))
+                     [acc-read-text-i
+                      acc-unknown-signs-images-i
+                      acc-limit-count-i
+                      acc-previous-sign-x-max-i]))
+                )
+               [acc-read-text
+                acc-unknown-signs-images
+                acc-limit-count
+                Integer/MAX_VALUE]
+               row)]
+        [(str
+           res-read-text
+           "\n")
+         res-unknown-signs-images
+         res-limit-count]))
+    [""
+     []
+     0]
+    all-signs))
 
 (defn match-unknown-signs-tasks-fn
   "Match unknown signs from image"
@@ -1774,15 +1707,17 @@
   (map
     (fn [rows-set
          thread-number]
-      #(let [matching-result (maching-unknown-signs-fn
-                               rows-set
-                               read-signs
-                               image-byte-array
-                               space-value
-                               matching-value
-                               unknown-sign-count-limit-per-thread)]
-         [thread-number
-          matching-result]))
+      #(dosync
+         (let [matching-result (maching-unknown-signs-fn
+                                 rows-set
+                                 read-signs
+                                 image-byte-array
+                                 space-value
+                                 matching-value
+                                 unknown-sign-count-limit-per-thread)]
+           [thread-number
+            matching-result]))
+     )
     refs
     (range
       (count

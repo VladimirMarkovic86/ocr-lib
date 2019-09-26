@@ -1170,7 +1170,7 @@
       
       (is
         (= result
-           [(Integer/MAX_VALUE) (Integer/MAX_VALUE)
+           [Integer/MAX_VALUE Integer/MAX_VALUE
             0 0])
        )
       
@@ -2059,10 +2059,10 @@
      )
     
     (let [selected-signs-set #{}
-          new-x-min (atom nil)
-          new-x-max (atom nil)
-          new-sign (atom nil)
-          row (atom nil)
+          new-x-min nil
+          new-x-max nil
+          new-sign nil
+          row nil
           result (merge-and-disj
                    selected-signs-set
                    new-x-min
@@ -2076,10 +2076,10 @@
      )
     
     (let [selected-signs-set #{[[1 2] "sign"]}
-          new-x-min (atom nil)
-          new-x-max (atom nil)
-          new-sign (atom nil)
-          row (atom nil)
+          new-x-min nil
+          new-x-max nil
+          new-sign nil
+          row nil
           result (merge-and-disj
                    selected-signs-set
                    new-x-min
@@ -2093,10 +2093,10 @@
      )
     
     (let [selected-signs-set #{[[1 2] "sign"]}
-          new-x-min (atom (Integer/MAX_VALUE))
-          new-x-max (atom 0)
-          new-sign (atom #{})
-          row (atom nil)
+          new-x-min Integer/MAX_VALUE
+          new-x-max 0
+          new-sign #{}
+          row nil
           result (merge-and-disj
                    selected-signs-set
                    new-x-min
@@ -2104,88 +2104,87 @@
                    new-sign
                    row)]
       (is
-        (true?
-          result)
+        (not
+          (nil?
+            result))
        )
      )
     
     (let [selected-signs-set #{[[1 2] #{[1 2] [3 4]}]}
-          new-x-min (atom (Integer/MAX_VALUE))
-          new-x-max (atom 0)
-          new-sign (atom #{[5 6]})
-          row (atom nil)
-          result (merge-and-disj
-                   selected-signs-set
-                   new-x-min
-                   new-x-max
-                   new-sign
-                   row)]
-      (is
-        (true?
-          result)
-       )
+          new-x-min Integer/MAX_VALUE
+          new-x-max 0
+          new-sign #{[5 6]}
+          row nil
+          [result-new-x-min
+           result-new-x-max
+           result-new-sign
+           result-row] (merge-and-disj
+                         selected-signs-set
+                         new-x-min
+                         new-x-max
+                         new-sign
+                         row)]
       
       (is
-        (= @new-x-min
+        (= result-new-x-min
            1)
        )
       
       (is
-        (= @new-x-max
+        (= result-new-x-max
            2)
        )
       
       (is
-        (= @new-sign
+        (= result-new-sign
            #{[3 4] [1 2] [5 6]})
        )
       
       (is
         (nil?
-          @row)
+          result-row)
        )
       
      )
     
     (let [selected-signs-set #{[[1 2] #{[1 2] [3 4]}]}
-          new-x-min (atom (Integer/MAX_VALUE))
-          new-x-max (atom 0)
-          new-sign (atom #{[5 6]})
-          row (atom #{[[1 2] #{[1 2] [3 4]}]})
-          result (merge-and-disj
-                   selected-signs-set
-                   new-x-min
-                   new-x-max
-                   new-sign
-                   row)]
-      (is
-        (true?
-          result)
-       )
+          new-x-min Integer/MAX_VALUE
+          new-x-max 0
+          new-sign #{[5 6]}
+          row #{[[1 2] #{[1 2] [3 4]}]}
+          [result-new-x-min
+           result-new-x-max
+           result-new-sign
+           result-row] (merge-and-disj
+                         selected-signs-set
+                         new-x-min
+                         new-x-max
+                         new-sign
+                         row)]
       
       (is
-        (= @new-x-min
+        (= result-new-x-min
            1)
        )
       
       (is
-        (= @new-x-max
+        (= result-new-x-max
            2)
        )
       
       (is
-        (= @new-sign
+        (= result-new-sign
            #{[3 4] [1 2] [5 6]})
        )
       
       (is
         (set?
-          @row)
+          result-row)
        )
       
       (is
         (empty?
-          @row)
+          result-row)
        )
       
      )
@@ -2200,12 +2199,12 @@
           new-sign nil
           new-x-min nil
           new-x-max nil
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
+          [result] (merge-sign-coordinates-concrete
+                     row-f
+                     row-s
+                     new-sign
+                     new-x-min
+                     new-x-max)]
       
       (is
         (nil?
@@ -2214,17 +2213,17 @@
       
      )
     
-    (let [row-f (atom nil)
-          row-s (atom nil)
+    (let [row-f #{}
+          row-s #{}
           new-sign nil
           new-x-min nil
           new-x-max nil
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
+          [result] (merge-sign-coordinates-concrete
+                     row-f
+                     row-s
+                     new-sign
+                     new-x-min
+                     new-x-max)]
       
       (is
         (nil?
@@ -2233,17 +2232,17 @@
       
      )
     
-    (let [row-f (atom #{})
-          row-s (atom #{})
+    (let [row-f #{}
+          row-s #{}
           new-sign nil
-          new-x-min nil
-          new-x-max nil
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
+          new-x-min 0
+          new-x-max 25
+          [result] (merge-sign-coordinates-concrete
+                     row-f
+                     row-s
+                     new-sign
+                     new-x-min
+                     new-x-max)]
       
       (is
         (nil?
@@ -2252,36 +2251,17 @@
       
      )
     
-    (let [row-f (atom #{})
-          row-s (atom #{})
-          new-sign nil
-          new-x-min (atom 0)
-          new-x-max (atom 25)
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
-      
-      (is
-        (nil?
-          result)
-       )
-      
-     )
-    
-    (let [row-f (atom #{})
-          row-s (atom #{})
-          new-sign (atom #{})
-          new-x-min (atom 0)
-          new-x-max (atom 25)
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
+    (let [row-f #{}
+          row-s #{}
+          new-sign #{}
+          new-x-min 0
+          new-x-max 25
+          [result] (merge-sign-coordinates-concrete
+                     row-f
+                     row-s
+                     new-sign
+                     new-x-min
+                     new-x-max)]
       
       (is
         (= result
@@ -2290,17 +2270,17 @@
       
      )
     
-    (let [row-f (atom #{[[2 23] #{[2 23] [3 23] [4 22]}]})
-          row-s (atom #{[[3 22] #{[3 20] [4 19]}]})
-          new-sign (atom #{})
-          new-x-min (atom 0)
-          new-x-max (atom 25)
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
+    (let [row-f #{[[2 23] #{[2 23] [3 23] [4 22]}]}
+          row-s #{[[3 22] #{[3 20] [4 19]}]}
+          new-sign #{}
+          new-x-min 0
+          new-x-max 25
+          [result] (merge-sign-coordinates-concrete
+                     row-f
+                     row-s
+                     new-sign
+                     new-x-min
+                     new-x-max)]
       
       (is
         (= result
@@ -2309,17 +2289,17 @@
       
      )
     
-    (let [row-f (atom #{[[2 23] #{[2 23] [3 23] [4 22]}]})
-          row-s (atom #{[[3 22] #{[3 20] [4 19]}]})
-          new-sign (atom #{[5 15]})
-          new-x-min (atom 0)
-          new-x-max (atom 25)
-          result (merge-sign-coordinates-concrete
-                   row-f
-                   row-s
-                   new-sign
-                   new-x-min
-                   new-x-max)]
+    (let [row-f #{[[2 23] #{[2 23] [3 23] [4 22]}]}
+          row-s #{[[3 22] #{[3 20] [4 19]}]}
+          new-sign #{[5 15]}
+          new-x-min 0
+          new-x-max 25
+          [result] (merge-sign-coordinates-concrete
+                     row-f
+                     row-s
+                     new-sign
+                     new-x-min
+                     new-x-max)]
       
       (is
         (= result
@@ -2354,8 +2334,8 @@
       
      )
     
-    (let [row-f (atom nil)
-          row-s (atom nil)
+    (let [row-f #{}
+          row-s #{}
           result-param nil
           new-sign nil
           new-x-min nil
@@ -2375,12 +2355,12 @@
       
      )
     
-    (let [row-f (atom #{})
-          row-s (atom #{})
+    (let [row-f #{}
+          row-s #{}
           result-param nil
           new-sign nil
-          new-x-min nil
-          new-x-max nil
+          new-x-min 0
+          new-x-max 25
           result (merge-sign-coordinates
                    row-f
                    row-s
@@ -2396,33 +2376,12 @@
       
      )
     
-    (let [row-f (atom #{})
-          row-s (atom #{})
-          result-param nil
-          new-sign nil
-          new-x-min (atom 0)
-          new-x-max (atom 25)
-          result (merge-sign-coordinates
-                   row-f
-                   row-s
-                   result-param
-                   new-sign
-                   new-x-min
-                   new-x-max)]
-      
-      (is
-        (nil?
-          result)
-       )
-      
-     )
-    
-    (let [row-f (atom #{})
-          row-s (atom #{})
-          result-param (atom #{})
-          new-sign (atom #{})
-          new-x-min (atom 0)
-          new-x-max (atom 25)
+    (let [row-f #{}
+          row-s #{}
+          result-param #{}
+          new-sign #{}
+          new-x-min 0
+          new-x-max 25
           result (merge-sign-coordinates
                    row-f
                    row-s
@@ -2438,12 +2397,12 @@
       
      )
     
-    (let [row-f (atom #{[[2 23] #{[2 23] [3 23] [4 22]}]})
-          row-s (atom #{[[3 22] #{[3 20] [4 19]}]})
-          result-param (atom #{})
-          new-sign (atom #{})
-          new-x-min (atom 0)
-          new-x-max (atom 25)
+    (let [row-f #{[[2 23] #{[2 23] [3 23] [4 22]}]}
+          row-s #{[[3 22] #{[3 20] [4 19]}]}
+          result-param #{}
+          new-sign #{}
+          new-x-min 0
+          new-x-max 25
           result (merge-sign-coordinates
                    row-f
                    row-s
@@ -2459,12 +2418,12 @@
       
      )
     
-    (let [row-f (atom #{[[2 23] #{[2 23] [3 23] [4 22]}]})
-          row-s (atom #{[[3 22] #{[3 20] [4 19]}]})
-          result-param (atom #{})
-          new-sign (atom #{[5 15]})
-          new-x-min (atom 0)
-          new-x-max (atom 25)
+    (let [row-f #{[[2 23] #{[2 23] [3 23] [4 22]}]}
+          row-s #{[[3 22] #{[3 20] [4 19]}]}
+          result-param #{}
+          new-sign #{[5 15]}
+          new-x-min 0
+          new-x-max 25
           result (merge-sign-coordinates
                    row-f
                    row-s
@@ -2514,13 +2473,22 @@
     
     (let [sorted-rows-set (sorted-set-by
                             sort-rows
-                            [[1 3] #{[[2 23] #{[2 23] [3 23] [4 22]}]}
+                            [[1 3]
+                              (sorted-set-by
+                                sort-row-elements
+                                [[2 23] #{[2 23] [3 23] [4 22]}])
                              ])
           sorted-rows-set (conj
                             sorted-rows-set
-                            [[4 7] #{[[3 22] #{[3 20] [4 19]}]}
+                            [[4 7]
+                              (sorted-set-by
+                                sort-row-elements
+                                [[3 22] #{[3 20] [4 19]}])
                              ]
-                            [[8 10] #{[[4 20] #{[4 19] [5 18]}]}
+                            [[8 10]
+                              (sorted-set-by
+                                sort-row-elements
+                                [[4 20] #{[4 19] [5 18]}])
                              ])
           result (merge-separated-parts
                    sorted-rows-set)]
@@ -2619,9 +2587,7 @@
           space-value nil
           hooks-value nil
           n-threads nil
-          result-refs nil
           result (read-unknown-signs-tasks-fn
-                   result-refs
                    image-obj
                    light-value
                    contrast-value
@@ -2652,46 +2618,7 @@
           space-value 16
           hooks-value 8
           n-threads 2
-          result-refs nil
           result (read-unknown-signs-tasks-fn
-                   result-refs
-                   (ImageIO/read
-                     (ByteArrayInputStream.
-                       image-byte-array))
-                   light-value
-                   contrast-value
-                   space-value
-                   hooks-value
-                   n-threads)]
-      
-      (is
-        (nil?
-          result)
-       )
-      
-     )
-    
-    (let [image-path "resources/dostojevski/i.jpg"
-          image-is (FileInputStream.
-                     (File.
-                       image-path))
-          available-bytes (.available
-                            image-is)
-          image-byte-array (byte-array
-                             available-bytes)
-          read-is (.read
-                    image-is
-                    image-byte-array)
-          light-value nil
-          contrast-value nil
-          space-value 16
-          hooks-value 8
-          n-threads 2
-          result-refs (atom
-                        (sorted-set-by
-                          sort-rows))
-          result (read-unknown-signs-tasks-fn
-                   result-refs
                    (ImageIO/read
                      (ByteArrayInputStream.
                        image-byte-array))
@@ -2895,19 +2822,25 @@
           space-value nil
           matching-value nil
           unknown-sign-count-limit-per-thread nil
-          result (maching-unknown-signs-fn
-                   all-signs
-                   read-signs
-                   image-byte-array
-                   space-value
-                   matching-value
-                   unknown-sign-count-limit-per-thread)]
+          [res-read-text
+           res-unknown-signs-images] (maching-unknown-signs-fn
+                                       all-signs
+                                       read-signs
+                                       image-byte-array
+                                       space-value
+                                       matching-value
+                                       unknown-sign-count-limit-per-thread)]
       
       (is
-        (= result
-           ["" []])
+        (= res-read-text
+           "")
        )
       
+      (is
+        (= res-unknown-signs-images
+           [])
+       )
+     
      )
     
     (let [image-path "resources/dostojevski/i.jpg"
