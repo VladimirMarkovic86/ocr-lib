@@ -241,7 +241,7 @@
 (defn grayscale-contrast-fn
   "Put image in gray scale mode
    and apply light and contrast values"
-  [image
+  [^BufferedImage image
    & [light-value
       contrast-value]]
   (when (and image
@@ -331,7 +331,7 @@
 
 (defn read-black-dots-fn
   "Read coordinates of black dots of image"
-  [image
+  [^BufferedImage image
    & [light-value
       contrast-value]]
   (when (and image
@@ -397,7 +397,7 @@
 
 (defn read-black-dots-part-fn
   "Read coordinates of black dots of image part"
-  [image
+  [^BufferedImage image
    start-y
    end-y
    & [light-value
@@ -502,7 +502,7 @@
 
 (defn dot-is-black?
   "Check if dot with particular coordinates is black"
-  [image
+  [^BufferedImage image
    x
    y]
   (when (and image
@@ -1070,7 +1070,7 @@
 
 (defn draw-sign
   "Draw image in image parameter"
-  [image
+  [^BufferedImage image
    coordinates-set]
   (when (and image
              (instance?
@@ -1134,7 +1134,7 @@
 
 (defn grouping-dots-one-part-fn
   "Grouping dots from one part of image"
-  [image
+  [^BufferedImage image
    thread-number
    n-threads
    light-value
@@ -1468,16 +1468,14 @@
   (when n-threads
     (map
       (fn [thread-number]
-        #(dosync
-           (let [all-signs (grouping-dots-one-part-fn
-                             image
-                             thread-number
-                             n-threads
-                             light-value
-                             contrast-value
-                             hooks-value)]
-             all-signs))
-       )
+        #(let [all-signs (grouping-dots-one-part-fn
+                           image
+                           thread-number
+                           n-threads
+                           light-value
+                           contrast-value
+                           hooks-value)]
+           all-signs))
       (range
         n-threads))
    ))
@@ -1707,17 +1705,15 @@
   (map
     (fn [rows-set
          thread-number]
-      #(dosync
-         (let [matching-result (maching-unknown-signs-fn
-                                 rows-set
-                                 read-signs
-                                 image-byte-array
-                                 space-value
-                                 matching-value
-                                 unknown-sign-count-limit-per-thread)]
-           [thread-number
-            matching-result]))
-     )
+      #(let [matching-result (maching-unknown-signs-fn
+                               rows-set
+                               read-signs
+                               image-byte-array
+                               space-value
+                               matching-value
+                               unknown-sign-count-limit-per-thread)]
+         [thread-number
+          matching-result]))
     refs
     (range
       (count
